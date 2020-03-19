@@ -35,7 +35,8 @@ class embed_GRU_Classifier(nn.Module):
         super(embed_GRU_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
 
-        self.embed = nn.Linear(EMBEDDING_DIM, EMBEDDING_DIM, bias=False)
+        self.embed1 = nn.Linear(EMBEDDING_DIM, EMBEDDING_DIM, bias=False)
+        self.embed2 = nn.Linear(EMBEDDING_DIM, EMBEDDING_DIM, bias=False)
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim
         self.gru = nn.GRU(embedding_dim, hidden_dim, num_layers=n_layer, bidirectional=bidirectional, dropout=DROPOUT)
@@ -47,7 +48,7 @@ class embed_GRU_Classifier(nn.Module):
 
     def forward(self, landmarks, lengths):
         # import pdb; pdb.set_trace()
-        landmarks = self.embed(landmarks)
+        landmarks = F.tanh(self.embed2(F.tanh(self.embed1(landmarks))))
         packed_input = pack_padded_sequence(landmarks, lengths, batch_first=True)
         _, ht = self.gru(packed_input)
         # import pdb; pdb.set_trace()
@@ -61,7 +62,7 @@ class GRU_Classifier(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, target_size=1, bidirectional=False, n_layer=1):
         super(GRU_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
-        self.grad_clipping = 10.
+        self.grad_clipping = 25.
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim
         self.gru = nn.GRU(embedding_dim, hidden_dim, num_layers=n_layer, bidirectional=bidirectional, dropout=DROPOUT)
@@ -89,7 +90,7 @@ class biGRU_Classifier(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, target_size=1, bidirectional=True, n_layer=1):
         super(biGRU_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
-
+        self.grad_clipping = 10.
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
         self.gru = nn.GRU(embedding_dim, hidden_dim, num_layers=n_layer, bidirectional=bidirectional, dropout=DROPOUT)
@@ -102,7 +103,8 @@ class biGRU_Classifier(nn.Module):
     def forward(self, landmarks, lengths):
         packed_input = pack_padded_sequence(landmarks, lengths, batch_first=True)
         _, ht = self.gru(packed_input)
-        # import pdb; pdb.set_trace()
+        if ht.requires_grad:
+            ht.register_hook(lambda x: x.clamp(min=-self.grad_clipping, max=self.grad_clipping))
         ht = self.dropout(torch.cat((ht[-2,:,:], ht[-1,:,:]), dim=1))
         logit = self.lc2(F.relu(self.lc1(ht)))
         return logit

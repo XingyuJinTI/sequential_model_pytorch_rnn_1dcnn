@@ -20,11 +20,11 @@ rnn = 'GRU'
 # rnn = 'LSTM'
 EMBEDDING_DIM = 68*2
 HIDDEN_DIM = 68*2* 2
-N_LAYERS_RNN = 1
+N_LAYERS_RNN = 6
 MAX_EPOCH = 1000
 LR = 1e-4
-DEVICES = 2
-SAVE_BEST_MODEL = False
+DEVICES = 1
+SAVE_BEST_MODEL = True
 torch.cuda.set_device(DEVICES)
 
 
@@ -102,9 +102,9 @@ optimizer = optim.Adam(model.parameters(), lr=LR)
 
 dataset_train = LandmarkList(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TrainList.txt')
 dataloader_train = data.DataLoader(dataset_train, batch_size=128, shuffle=True, num_workers=2, collate_fn=pad_collate)
-if rnn == 'frameGRU':
-    dataloader_train = data.DataLoader(dataset_train, batch_size=8, shuffle=True, num_workers=2,
-                                       collate_fn=pad_collate)
+# if rnn == 'frameGRU':
+#     dataloader_train = data.DataLoader(dataset_train, batch_size=8, shuffle=True, num_workers=2,
+#                                        collate_fn=pad_collate)
 
 dataset_test = LandmarkList(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TestList.txt')
 dataloader_test = data.DataLoader(dataset_test, batch_size=64, shuffle=False, num_workers=1, collate_fn=pad_collate)

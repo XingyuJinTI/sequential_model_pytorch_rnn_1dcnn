@@ -44,3 +44,21 @@ class LandmarkList(data.Dataset):
 
     def __len__(self):
         return len(self.lmList)
+
+
+class LandmarkListTest(data.Dataset):
+    def __init__(self, root, fileList, transform=None, list_reader=default_list_reader, loader=default_loader):
+        self.root      = root
+        self.lmList   = list_reader(fileList)
+        self.transform = transform
+        self.loader    = loader
+
+    def __getitem__(self, index):
+        lmPath, target = self.lmList[index]
+        lm = self.loader(os.path.join(self.root, lmPath))
+        if self.transform is not None:
+            lm = self.transform(lm)
+        return lm, target, lm.shape[0], lmPath
+
+    def __len__(self):
+        return len(self.lmList)

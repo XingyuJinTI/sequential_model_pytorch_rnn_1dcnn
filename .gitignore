@@ -1,3 +1,4 @@
-outputs/
+outputs*/
+eval/
 models/
 __pycache__/
