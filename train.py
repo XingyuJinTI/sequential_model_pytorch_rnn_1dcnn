@@ -10,17 +10,17 @@ import argparse
 from model import *
 
 # rnn = 'frameGRU'
+# to be implemented - rnn = 'frameCRNN'
 # rnn = 'sumGRU'
 # rnn = 'crnn'
 # rnn = 'cnn'
-rnn = 'GRU'
-# rnn = 'framewise_GRU'
-# rnn = 'embedGRU'
+# rnn = 'GRU'
+rnn = 'embedGRU'
 # rnn = 'biGRU'
 # rnn = 'LSTM'
 EMBEDDING_DIM = 68*2
 HIDDEN_DIM = 68*2* 2
-N_LAYERS_RNN = 6
+N_LAYERS_RNN = 3
 MAX_EPOCH = 1000
 LR = 1e-4
 DEVICES = 1
@@ -32,7 +32,7 @@ def compute_binary_accuracy(model, data_loader, loss_function):
     correct_pred, num_examples, total_loss = 0, 0, 0.
     model.eval()
     with torch.no_grad():
-        if rnn == 'frameGRU':
+        if rnn == 'frameGRU' or rnn == 'frameCRNN':
             for batch, labels, lengths in data_loader:
                 logits = model(batch.cuda(), lengths)
                 out = torch.sigmoid(logits)
@@ -42,18 +42,17 @@ def compute_binary_accuracy(model, data_loader, loss_function):
                 #     for i in range(len(lengths)):
                 #         new_out_list.append(out[i][:lengths[i]].sum())
                 #     out = torch.cat(new_out_list, 0)
-                if rnn == 'frameGRU':
-                    new_labels_list = []
-                    new_logits_list = []
-                    new_out_list = []
-                    for i in range(len(lengths)):
-                        new_labels_list += [labels[i]] * lengths[i]
-                        new_logits_list.append(out[i][:lengths[i]])
-                        new_out_list.append(out[i][:lengths[i]].mean(0, keepdim=True))
-                    # import pdb; pdb.set_trace()
-                    logits_framewise = torch.cat(new_logits_list, 0)
-                    labels_framewise = new_labels_list
-                    out = torch.cat(new_out_list, 0)
+                new_labels_list = []
+                new_logits_list = []
+                new_out_list = []
+                for i in range(len(lengths)):
+                    new_labels_list += [labels[i]] * lengths[i]
+                    new_logits_list.append(out[i][:lengths[i]])
+                    new_out_list.append(out[i][:lengths[i]].mean(0, keepdim=True))
+                # import pdb; pdb.set_trace()
+                logits_framewise = torch.cat(new_logits_list, 0)
+                labels_framewise = new_labels_list
+                out = torch.cat(new_out_list, 0)
                 total_loss += loss_function(logits_framewise, torch.FloatTensor(labels_framewise).unsqueeze(1).cuda()).item()
                 predicted_labels = (out > 0.5).long()
                 num_examples += len(lengths)
@@ -80,6 +79,8 @@ def pad_collate(batch):
 
 if rnn == 'frameGRU':
     model = Framewise_GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
+if rnn == 'frameCRNN':
+    model = FrameCRNN(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'sumGRU':
     model = sumGRU(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'embedGRU':
@@ -134,7 +135,8 @@ for epoch in range(MAX_EPOCH):
     if test_acc > best_test_acc:
         best_test_acc = test_acc
         if SAVE_BEST_MODEL:
-            torch.save(model.state_dict(), 'models/' + rnn + '.pt')
+            torch.save(model.state_dict(), 'models/' + rnn +
+                       '_L' + str(N_LAYERS_RNN) + '.pt')
         print('best epoch {}, train_acc {}, test_acc {}'.format(epoch, train_acc, test_acc))
 
 

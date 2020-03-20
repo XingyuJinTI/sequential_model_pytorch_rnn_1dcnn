@@ -35,15 +35,15 @@ class embed_GRU_Classifier(nn.Module):
         super(embed_GRU_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
 
-        self.embed1 = nn.Linear(EMBEDDING_DIM, EMBEDDING_DIM, bias=False)
-        self.embed2 = nn.Linear(EMBEDDING_DIM, EMBEDDING_DIM, bias=False)
+        self.embed1 = nn.Linear(embedding_dim, embedding_dim, bias=False)
+        self.embed2 = nn.Linear(embedding_dim, embedding_dim, bias=False)
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim
         self.gru = nn.GRU(embedding_dim, hidden_dim, num_layers=n_layer, bidirectional=bidirectional, dropout=DROPOUT)
 
         # The linear layer that maps from hidden state space to tag space
-        self.lc1 = nn.Linear(hidden_dim,EMBEDDING_DIM)
-        self.lc2 = nn.Linear(EMBEDDING_DIM, target_size)
+        self.lc1 = nn.Linear(hidden_dim,embedding_dim)
+        self.lc2 = nn.Linear(embedding_dim, target_size)
         self.dropout = nn.Dropout(DROPOUT)
 
     def forward(self, landmarks, lengths):
@@ -143,7 +143,8 @@ class sumGRU(nn.Module):
         self.gru = nn.GRU(embedding_dim, hidden_dim, num_layers=n_layer, bidirectional=bidirectional, dropout=DROPOUT)
 
         # The linear layer that maps from hidden state space to tag space
-        self.lc1 = nn.Linear(hidden_dim, target_size)
+        self.lc1 = nn.Linear(hidden_dim, embedding_dim)
+        self.lc2 = nn.Linear(embedding_dim, target_size)
         self.dropout = nn.Dropout(DROPOUT)
 
     def forward(self, landmarks, lengths):
@@ -152,8 +153,8 @@ class sumGRU(nn.Module):
         output, _ = pad_packed_sequence(packed_output, batch_first=True)
         # import pdb; pdb.set_trace()
         output = self.dropout(output.sum(1))
-        logit = self.lc1(output)    # probably a 1x1 conv is need to do linear transform
-        # logit = self.lc2(F.relu(self.lc1(ht)))
+        # logit = self.lc1(output)    # probably a 1x1 conv is need to do linear transform
+        logit = self.lc2(F.relu(self.lc1(output)))
         return logit
 
 
@@ -162,7 +163,7 @@ class cnn_Classifier(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, target_size=1, bidirectional=False):
         super(cnn_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
-        self.n_layers = 6  # 4, 6 ,8
+        self.n_layers = 8  # 2, 4, 6 ,8
         if self.n_layers >= 2:
             self.conv1 = nn.Conv1d(in_channels=embedding_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
             self.conv2 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
@@ -237,7 +238,7 @@ class crnn_Classifier(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, target_size=1, bidirectional=False, n_layer=1):
         super(crnn_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
-        self.n_layers = 6  # 4, 6 ,8
+        self.n_layers = 4 # 2, 4, 6 ,8
         if self.n_layers >= 2:
             self.conv1 = nn.Conv1d(in_channels=embedding_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
             self.conv2 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
@@ -289,7 +290,6 @@ class crnn_Classifier(nn.Module):
 
         # Permute back: (b, dim, d_seq) --> (b, seq, dim) with shorter seq
         landmarks = landmarks.permute(0, 2, 1)
-        print()
         # Feed into GRU
         packed_input = pack_padded_sequence(self.dropout(landmarks), torch.IntTensor(lengths)/self.scale_pool, batch_first=True)
         _, ht = self.gru(packed_input)
@@ -298,13 +298,13 @@ class crnn_Classifier(nn.Module):
         logit = self.lc2(self.dropout(logit))
         return logit
 
-
+# to be implemented
 class FrameCRNN(nn.Module):
 
     def __init__(self, embedding_dim, hidden_dim, target_size=1, bidirectional=False, n_layer=1):
-        super(crnn_Classifier, self).__init__()
+        super(FrameCRNN, self).__init__()
         self.hidden_dim = hidden_dim
-        self.n_layers = 6  # 4, 6 ,8
+        self.n_layers = 2  # 2, 4, 6 ,8
         if self.n_layers >= 2:
             self.conv1 = nn.Conv1d(in_channels=embedding_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
             self.conv2 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
@@ -356,7 +356,6 @@ class FrameCRNN(nn.Module):
 
         # Permute back: (b, dim, d_seq) --> (b, seq, dim) with shorter seq
         landmarks = landmarks.permute(0, 2, 1)
-        print()
         # Feed into GRU
         packed_input = pack_padded_sequence(self.dropout(landmarks), torch.IntTensor(lengths)/self.scale_pool, batch_first=True)
         _, ht = self.gru(packed_input)

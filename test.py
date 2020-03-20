@@ -11,7 +11,7 @@ from model import *
 
 # rnn = 'frameGRU'
 # rnn = 'sumGRU'
-# rnn = 'crnn'
+#rnn = 'crnn'
 # rnn = 'cnn'
 # rnn = 'GRU'
 # rnn = 'framewise_GRU'
@@ -20,10 +20,9 @@ rnn = 'biGRU'
 # rnn = 'LSTM'
 EMBEDDING_DIM = 68*2
 HIDDEN_DIM = 68*2* 2
-N_LAYERS_RNN = 1
-MAX_EPOCH = 800
+N_LAYERS_RNN = 3
 LR = 1e-4
-DEVICES = 3
+DEVICES = 0
 torch.cuda.set_device(DEVICES)
 
 
@@ -93,7 +92,7 @@ if rnn == 'cnn':
     model = cnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1)
 if rnn == 'crnn':
     model = crnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
-model.load_state_dict(torch.load("models/biGRU.pt"))
+model.load_state_dict(torch.load("models/"+str(rnn)+".pt"))
 model = model.cuda()
 
 loss_function = torch.nn.BCEWithLogitsLoss()
