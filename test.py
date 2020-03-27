@@ -9,18 +9,18 @@ import argparse
 
 from model import *
 
-# rnn = 'frameGRU'
+rnn = 'frameGRU'
 # rnn = 'sumGRU'
-#rnn = 'crnn'
+# rnn = 'crnn'
 # rnn = 'cnn'
 # rnn = 'GRU'
 # rnn = 'framewise_GRU'
 # rnn = 'embedGRU'
-rnn = 'biGRU'
+# rnn = 'biGRU'
 # rnn = 'LSTM'
 EMBEDDING_DIM = 68*2
 HIDDEN_DIM = 68*2* 2
-N_LAYERS_RNN = 3
+N_LAYERS_RNN = 1
 LR = 1e-4
 DEVICES = 0
 torch.cuda.set_device(DEVICES)
@@ -33,45 +33,41 @@ def compute_binary_accuracy(model, data_loader):
     model.eval()
     with torch.no_grad():
         if rnn == 'frameGRU':
-            for batch, labels, lengths in data_loader:
-                logits = model(batch.cuda(), lengths)
-                out = torch.sigmoid(logits)
-                # if rnn == 'frameGRU':
-                #     new_out_list = []
-                #     new_labels_list = []
-                #     for i in range(len(lengths)):
-                #         new_out_list.append(out[i][:lengths[i]].sum())
-                #     out = torch.cat(new_out_list, 0)
-                if rnn == 'frameGRU':
-                    new_labels_list = []
-                    new_logits_list = []
-                    new_out_list = []
-                    for i in range(len(lengths)):
-                        new_labels_list += [labels[i]] * lengths[i]
-                        new_logits_list.append(out[i][:lengths[i]])
-                        new_out_list.append(out[i][:lengths[i]].mean(0, keepdim=True))
-                    # import pdb; pdb.set_trace()
-                    logits_framewise = torch.cat(new_logits_list, 0)
-                    labels_framewise = new_labels_list
-                    out = torch.cat(new_out_list, 0)
-                predicted_labels = (out > 0.5).long()
-                num_examples += len(lengths)
-                correct_pred += (predicted_labels.squeeze(1).cpu().long() == torch.LongTensor(labels)).sum()
-            return correct_pred.float().item()/num_examples * 100, total_loss
-        else:
             for batch, labels, lengths, f_names in data_loader:
                 logits = model(batch.cuda(), lengths)
-                predicted_labels = (torch.sigmoid(logits) > 0.5).long()
+                out = torch.sigmoid(logits)
+                new_out_list = []
+                for i in range(len(lengths)):
+                    new_out_list.append(out[i][:lengths[i]].mean(0, keepdim=True))
+                # import pdb; pdb.set_trace()
+                out = torch.cat(new_out_list, 0)
+                predicted_labels = (out > 0.5).long()
                 num_examples += len(lengths)
-                #import pdb; pdb.set_trace()
                 if predicted_labels.squeeze(1).cpu().long() == torch.LongTensor(labels):
                     correct_pred += 1
                 elif labels == 0:
                     FP += 1
-                    FP_list.append(f_names[0]+'_'+str(labels.item())+'_'+str(predicted_labels.squeeze(1).cpu().long().item()))
+                    FP_list.append(f_names[0] + '_' + str(labels.item()) + '_' + str(
+                        out.squeeze(1).cpu().item()))
                 else:
                     FN += 1
-                    FN_list.append(f_names[0]+'_'+str(labels.item())+'_'+str(predicted_labels.squeeze(1).cpu().long().item()))
+                    FN_list.append(f_names[0] + '_' + str(labels.item()) + '_' + str(
+                        out.squeeze(1).cpu().item()))
+            return correct_pred/num_examples * 100, FP, FN, FP_list, FN_list
+        else:
+            for batch, labels, lengths, f_names in data_loader:
+                #import pdb; pdb.set_trace()
+                logits = model(batch.cuda(), lengths)
+                predicted_labels = (torch.sigmoid(logits) > 0.5).long()
+                num_examples += len(lengths)
+                if predicted_labels.squeeze(1).cpu().long() == torch.LongTensor(labels):
+                    correct_pred += 1
+                elif labels == 0:
+                    FP += 1
+                    FP_list.append(f_names[0]+'_'+str(labels.item())+'_'+str(torch.sigmoid(logits).squeeze(1).cpu().item()))
+                else:
+                    FN += 1
+                    FN_list.append(f_names[0]+'_'+str(labels.item())+'_'+str(torch.sigmoid(logits).squeeze(1).cpu().item()))
             return correct_pred/num_examples * 100, FP, FN, FP_list, FN_list
 
 
@@ -92,7 +88,7 @@ if rnn == 'cnn':
     model = cnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1)
 if rnn == 'crnn':
     model = crnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
-model.load_state_dict(torch.load("models/"+str(rnn)+".pt"))
+model.load_state_dict(torch.load("models/"+str(rnn)+"_L1.pt"))
 model = model.cuda()
 
 loss_function = torch.nn.BCEWithLogitsLoss()
@@ -111,7 +107,14 @@ train_acc, train_fp, train_fn, train_fp_list, train_fn_list = compute_binary_acc
 test_acc, test_fp, test_fn, test_fp_list, test_fn_list = compute_binary_accuracy(model, dataloader_test)
 print('train_acc,{:.2f}%,train_fp,{},train_fn,{}\nvalid_acc,{:.2f}%,valid_fp,{},valid_fn,{}\n'
       .format(train_acc, train_fp, train_fn, test_acc, test_fp, test_fn))
-print('Test FP')
+print('Train FP')
+for n in train_fp_list:
+    print(n)
+print('\nTrain FN')
+for n in train_fn_list:
+    print(n)
+
+print('\n\n\nTest FP')
 for n in test_fp_list:
     print(n)
 print('\nTest FN')

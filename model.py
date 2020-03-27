@@ -291,7 +291,9 @@ class crnn_Classifier(nn.Module):
         # Permute back: (b, dim, d_seq) --> (b, seq, dim) with shorter seq
         landmarks = landmarks.permute(0, 2, 1)
         # Feed into GRU
-        packed_input = pack_padded_sequence(self.dropout(landmarks), torch.IntTensor(lengths)/self.scale_pool, batch_first=True)
+        #import pdb; pdb.set_trace()
+        # packed_input = pack_padded_sequence(self.dropout(landmarks), torch.IntTensor(lengths)/self.scale_pool, batch_first=True)
+        packed_input = pack_padded_sequence(self.dropout(landmarks), lengths.int()/self.scale_pool, batch_first=True)
         _, ht = self.gru(packed_input)
         ht = self.dropout(ht[-1])
         logit = F.relu(self.lc1(ht))
