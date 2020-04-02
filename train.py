@@ -12,18 +12,18 @@ from model import *
 # rnn = 'frameGRU'
 # to be implemented - rnn = 'frameCRNN'
 # rnn = 'sumGRU'
-rnn = 'crnn'
+# rnn = 'crnn'
 # rnn = 'cnn'
 # rnn = 'GRU'
 # rnn = 'embedGRU'
-# rnn = 'biGRU'
+rnn = 'biGRU'
 # rnn = 'LSTM'
-EMBEDDING_DIM = 68*2
-HIDDEN_DIM = 68*2* 2
-N_LAYERS_RNN = 1
+EMBEDDING_DIM = int(68 * 67 /2)
+HIDDEN_DIM = 128
+N_LAYERS_RNN = 3
 MAX_EPOCH = 1000
 LR = 1e-4
-DEVICES = 1
+DEVICES = 2
 SAVE_BEST_MODEL = True
 torch.cuda.set_device(DEVICES)
 
@@ -74,7 +74,7 @@ def pad_collate(batch):
     new_lms = torch.zeros((len(lms), lms[0].shape[0], lms[0].shape[1])) # batch x seq x feature(136)
     new_lms[0] = lms[0]
     for i in range(1, len(lms)):
-        new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),136)), 0)
+        new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),EMBEDDING_DIM)), 0)
     return new_lms, tgs, lens
 
 if rnn == 'frameGRU':
@@ -101,14 +101,14 @@ loss_function = torch.nn.BCEWithLogitsLoss()
 loss_function_eval_sum = torch.nn.BCEWithLogitsLoss(reduction='sum')
 optimizer = optim.Adam(model.parameters(), lr=LR)
 
-dataset_train = LandmarkList(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TrainList.txt')
-dataloader_train = data.DataLoader(dataset_train, batch_size=128, shuffle=True, num_workers=2, collate_fn=pad_collate)
+dataset_train = LandmarkList(root='/datasets/move_closer/Data_Distortion/', fileList='/datasets/move_closer/TrainList.txt')
+dataloader_train = data.DataLoader(dataset_train, batch_size=128, shuffle=True, num_workers=0, collate_fn=pad_collate)
 # if rnn == 'frameGRU':
 #     dataloader_train = data.DataLoader(dataset_train, batch_size=8, shuffle=True, num_workers=2,
 #                                        collate_fn=pad_collate)
 
-dataset_test = LandmarkList(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TestList.txt')
-dataloader_test = data.DataLoader(dataset_test, batch_size=64, shuffle=False, num_workers=1, collate_fn=pad_collate)
+dataset_test = LandmarkList(root='/datasets/move_closer/Data_Distortion/', fileList='/datasets/move_closer/TestList.txt')
+dataloader_test = data.DataLoader(dataset_test, batch_size=64, shuffle=False, num_workers=0, collate_fn=pad_collate)
 
 best_test_acc = 0.
 for epoch in range(MAX_EPOCH):
