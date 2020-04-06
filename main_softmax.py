@@ -8,18 +8,19 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import argparse
 
 
-rnn = 'GRU'
+# rnn = 'GRU'
 # rnn = 'embedGRU'
-# rnn = 'biGRU'
+rnn = 'biGRU'
 # rnn = 'LSTM'
 EMBEDDING_DIM = 68*2
 HIDDEN_DIM = 68*2* 2
-N_LAYERS_RNN = 1
+N_LAYERS_RNN = 3
 DROPOUT = 0.5
-MAX_EPOCH = 500
+MAX_EPOCH = 1000
 LR = 1e-4
 DEVICES = 1
 torch.cuda.set_device(DEVICES)
+SAVE_BEST_MODEL = True
 
 
 def compute_binary_accuracy(model, data_loader, loss_function):
@@ -168,7 +169,7 @@ dataloader_train = data.DataLoader(dataset_train, batch_size=128, shuffle=True, 
 dataset_test = LandmarkList(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TestList.txt')
 dataloader_test = data.DataLoader(dataset_test, batch_size=64, shuffle=False, num_workers=1, collate_fn=pad_collate)
 
-
+best_test_acc = 0.
 for epoch in range(MAX_EPOCH):
     model.train()
     n_iter = 0
@@ -184,6 +185,13 @@ for epoch in range(MAX_EPOCH):
     train_acc, train_loss = compute_binary_accuracy(model, dataloader_train, loss_function_eval_sum)
     test_acc, test_loss = compute_binary_accuracy(model, dataloader_test, loss_function_eval_sum)
     print('Epoch{},train_acc,{:.2f}%,train_loss,{:.8f},valid_acc,{:.2f}%,valid_loss,{:.8f}'.format(epoch, train_acc, train_loss, test_acc, test_loss))
+    if test_acc > best_test_acc:
+        best_test_acc = test_acc
+        if SAVE_BEST_MODEL:
+            torch.save(model.state_dict(), 'models/' + rnn +
+                       '_L' + str(N_LAYERS_RNN) + '.pt')
+        print('best epoch {}, train_acc {}, test_acc {}'.format(epoch, train_acc, test_acc))
+
 
 
 
