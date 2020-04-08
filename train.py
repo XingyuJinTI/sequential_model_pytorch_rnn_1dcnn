@@ -12,15 +12,15 @@ from model import *
 # rnn = 'frameGRU'
 # to be implemented - rnn = 'frameCRNN'
 # rnn = 'sumGRU'
-# rnn = 'crnn'
+rnn = 'crnn'
 # rnn = 'cnn'
 # rnn = 'GRU'
-rnn = 'embedGRU'
+# rnn = 'embedGRU'
 # rnn = 'biGRU'
 # rnn = 'LSTM'
 EMBEDDING_DIM = 68*2
 HIDDEN_DIM = 68*2* 2
-N_LAYERS_RNN = 3
+N_LAYERS_RNN = 1
 MAX_EPOCH = 1000
 LR = 1e-4
 DEVICES = 3
@@ -127,9 +127,9 @@ for epoch in range(MAX_EPOCH):
             out = torch.cat(new_out_list, 0)
             labels = new_labels_list
         loss = loss_function(out, torch.FloatTensor(labels).unsqueeze(1).cuda())
+        loss.backward()
         if Grad_Clip_For_All:
             nn.utils.clip_grad_value_(model.parameters(), 10)
-        loss.backward()
         optimizer.step()
         n_iter += 1
     train_acc, train_loss = compute_binary_accuracy(model, dataloader_train, loss_function_eval_sum)
