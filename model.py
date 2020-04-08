@@ -34,6 +34,7 @@ class embed_GRU_Classifier(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, target_size=1, bidirectional=False, n_layer=1):
         super(embed_GRU_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
+        self.grad_clipping = 10.
 
         self.embed1 = nn.Linear(embedding_dim, embedding_dim, bias=False)
         self.embed2 = nn.Linear(embedding_dim, embedding_dim, bias=False)
@@ -51,6 +52,8 @@ class embed_GRU_Classifier(nn.Module):
         landmarks = F.tanh(self.embed2(F.tanh(self.embed1(landmarks))))
         packed_input = pack_padded_sequence(landmarks, lengths, batch_first=True)
         _, ht = self.gru(packed_input)
+        if ht.requires_grad:
+            ht.register_hook(lambda x: x.clamp(min=-self.grad_clipping, max=self.grad_clipping))
         # import pdb; pdb.set_trace()
         ht = self.dropout(ht[-1])
         logit = self.lc2(F.tanh(self.lc1(ht)))
@@ -62,7 +65,7 @@ class GRU_Classifier(nn.Module):
     def __init__(self, embedding_dim, hidden_dim, target_size=1, bidirectional=False, n_layer=1):
         super(GRU_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
-        self.grad_clipping = 25.
+        self.grad_clipping = 10.
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim
         self.gru = nn.GRU(embedding_dim, hidden_dim, num_layers=n_layer, bidirectional=bidirectional, dropout=DROPOUT)
@@ -269,6 +272,7 @@ class crnn_Classifier(nn.Module):
 
         self.dropout = nn.Dropout(DROPOUT)
         self.gru = nn.GRU(hidden_dim, hidden_dim, num_layers=n_layer, bidirectional=bidirectional, dropout=DROPOUT)
+        self.grad_clipping = 10.
 
         # The linear layer that maps from hidden state space to tag space
         self.lc1 = nn.Linear(hidden_dim, embedding_dim)
@@ -293,8 +297,10 @@ class crnn_Classifier(nn.Module):
         # Feed into GRU
         #import pdb; pdb.set_trace()
         # packed_input = pack_padded_sequence(self.dropout(landmarks), torch.IntTensor(lengths)/self.scale_pool, batch_first=True)
-        packed_input = pack_padded_sequence(self.dropout(landmarks), lengths.int()/self.scale_pool, batch_first=True)
+        packed_input = pack_padded_sequence(self.dropout(landmarks), tuple(int(x/self.scale_pool) for x in lengths), batch_first=True)
         _, ht = self.gru(packed_input)
+        if ht.requires_grad:
+            ht.register_hook(lambda x: x.clamp(min=-self.grad_clipping, max=self.grad_clipping))
         ht = self.dropout(ht[-1])
         logit = F.relu(self.lc1(ht))
         logit = self.lc2(self.dropout(logit))

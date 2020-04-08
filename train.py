@@ -20,11 +20,12 @@ rnn = 'embedGRU'
 # rnn = 'LSTM'
 EMBEDDING_DIM = 68*2
 HIDDEN_DIM = 68*2* 2
-N_LAYERS_RNN = 6
-MAX_EPOCH = 5000
+N_LAYERS_RNN = 3
+MAX_EPOCH = 1000
 LR = 1e-4
-DEVICES = 1
+DEVICES = 3
 SAVE_BEST_MODEL = True
+Grad_Clip_For_All = False
 torch.cuda.set_device(DEVICES)
 
 
@@ -126,6 +127,8 @@ for epoch in range(MAX_EPOCH):
             out = torch.cat(new_out_list, 0)
             labels = new_labels_list
         loss = loss_function(out, torch.FloatTensor(labels).unsqueeze(1).cuda())
+        if Grad_Clip_For_All:
+            nn.utils.clip_grad_value_(model.parameters(), 10)
         loss.backward()
         optimizer.step()
         n_iter += 1
@@ -136,7 +139,7 @@ for epoch in range(MAX_EPOCH):
         best_test_acc = test_acc
         if SAVE_BEST_MODEL:
             torch.save(model.state_dict(), 'models/' + rnn +
-                       '_L' + str(N_LAYERS_RNN) + '.pt')
+                       '_L' + str(N_LAYERS_RNN) + '_GC.pt')
         print('best epoch {}, train_acc {}, test_acc {}'.format(epoch, train_acc, test_acc))
 
 
