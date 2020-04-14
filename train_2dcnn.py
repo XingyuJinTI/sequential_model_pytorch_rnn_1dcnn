@@ -9,9 +9,11 @@ import argparse
 
 from model import *
 
+
+rnn = '2dcnn'
 # rnn = 'frameGRU'
 # to be implemented - rnn = 'frameCRNN'
-rnn = 'sumGRU'
+# rnn = 'sumGRU'
 # rnn = 'crnn'
 # rnn = 'cnn'
 # rnn = 'GRU'
@@ -20,10 +22,10 @@ rnn = 'sumGRU'
 # rnn = 'LSTM'
 EMBEDDING_DIM = int(68 * 67 /2)
 HIDDEN_DIM = 128
-N_LAYERS_RNN = 1
-MAX_EPOCH = 30000
+N_LAYERS_RNN = 3
+MAX_EPOCH = 1000
 LR = 1e-4
-DEVICES = 3
+DEVICES = 2
 SAVE_BEST_MODEL = True
 torch.cuda.set_device(DEVICES)
 
@@ -77,6 +79,8 @@ def pad_collate(batch):
         new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),EMBEDDING_DIM)), 0)
     return new_lms, tgs, lens
 
+if rnn == '2dcnn':
+    model = cnn_2d(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'frameGRU':
     model = Framewise_GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'frameCRNN':

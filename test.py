@@ -18,8 +18,8 @@ from model import *
 # rnn = 'embedGRU'
 rnn = 'biGRU'
 # rnn = 'LSTM'
-EMBEDDING_DIM = 68*2
-HIDDEN_DIM = 68*2* 2
+EMBEDDING_DIM = int(68 * 67 /2)
+HIDDEN_DIM = 128
 N_LAYERS_RNN = 3
 LR = 1e-4
 DEVICES = 0
@@ -86,30 +86,34 @@ if rnn == 'sumGRU':
     model = sumGRU(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'embedGRU':
     model = embed_GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
+    model.load_state_dict(torch.load("models/" + str(rnn) + "_L" + str(N_LAYERS_RNN) + ".pt"))
 if rnn == 'GRU':
     model = GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
+    model.load_state_dict(torch.load("models/" + str(rnn) + "_L" + str(N_LAYERS_RNN) + ".pt"))
 if rnn == 'biGRU':
     model = biGRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
+    model.load_state_dict(torch.load("models/" + str(rnn) + "_L" + str(N_LAYERS_RNN) + ".pt"))
 if rnn == 'LSTM':
     model = LSTM_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'cnn':
     model = cnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1)
 if rnn == 'crnn':
     model = crnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
-model.load_state_dict(torch.load("models/"+str(rnn)+".pt"))
+# model.load_state_dict(torch.load("models/"+str(rnn)+".pt"))
 model = model.cuda()
 
 loss_function = torch.nn.BCEWithLogitsLoss()
 loss_function_eval_sum = torch.nn.BCEWithLogitsLoss(reduction='sum')
 optimizer = optim.Adam(model.parameters(), lr=LR)
 
-dataset_train = LandmarkListTest(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TrainList.txt')
+dataset_train = LandmarkListTest(root='/datasets/move_closer/Data_Distortion/', fileList='/datasets/move_closer/TrainList.txt')
 dataloader_train = data.DataLoader(dataset_train, batch_size=1, shuffle=False, num_workers=0)
 
-dataset_test = LandmarkListTest(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TestList.txt')
+dataset_test = LandmarkListTest(root='/datasets/move_closer/Data_Distortion/', fileList='/datasets/move_closer/TestList.txt')
 dataloader_test = data.DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=0)
 
-thresholds = [x * 0.01 for x in range(30, 71)]
+# thresholds = [x * 0.01 for x in range(30, 71)]
+thresholds = [0.5]
 
 train_acc, train_fp, train_fn, train_fp_list, train_fn_list = compute_binary_accuracy(model, dataloader_train, thresholds)
 test_acc, test_fp, test_fn, test_fp_list, test_fn_list = compute_binary_accuracy(model, dataloader_test, thresholds)
@@ -118,17 +122,17 @@ for i in range(0, len(thresholds)):
     print('\n\n-----------------Eval for threshold of {:.2f}-------------------\n\n'.format(thresholds[i]))
     print('train_acc,{:.2f}%,train_fp,{},train_fn,{}\nvalid_acc,{:.2f}%,valid_fp,{},valid_fn,{}\n'
           .format(train_acc[i], train_fp[i], train_fn[i], test_acc[i], test_fp[i], test_fn[i]))
-    # print('Train FP')
-    # for n in train_fp_list[i]:
-    #     print(n)
-    # print('\nTrain FN')
-    # for n in train_fn_list[i]:
-    #     print(n)
-    #
-    # print('\n\n\nTest FP')
-    # for n in test_fp_list[i]:
-    #     print(n)
-    # print('\nTest FN')
-    # for n in test_fn_list[i]:
-    #     print(n)
+    print('Train FP')
+    for n in train_fp_list[i]:
+        print(n)
+    print('\nTrain FN')
+    for n in train_fn_list[i]:
+        print(n)
+
+    print('\n\n\nTest FP')
+    for n in test_fp_list[i]:
+        print(n)
+    print('\nTest FN')
+    for n in test_fn_list[i]:
+        print(n)
 
