@@ -12,20 +12,21 @@ from model import *
 # rnn = 'frameGRU'
 # to be implemented - rnn = 'frameCRNN'
 # rnn = 'sumGRU'
-rnn = 'crnn'
+# rnn = 'crnn'
 # rnn = 'cnn'
 # rnn = 'GRU'
 # rnn = 'embedGRU'
-# rnn = 'biGRU'
+rnn = 'biGRU'
 # rnn = 'LSTM'
-EMBEDDING_DIM = 68*2
-HIDDEN_DIM = 68*2* 2
-N_LAYERS_RNN = 1
+LANDMARK = 51
+EMBEDDING_DIM = LANDMARK*2
+HIDDEN_DIM = LANDMARK*2* 2
+N_LAYERS_RNN = 3
 MAX_EPOCH = 1000
 LR = 1e-4
 DEVICES = 3
 SAVE_BEST_MODEL = True
-Grad_Clip_For_All = False
+Grad_Clip_For_All = False # always False please. I tried, nothing better.
 torch.cuda.set_device(DEVICES)
 
 
@@ -76,7 +77,13 @@ def pad_collate(batch):
     new_lms[0] = lms[0]
     for i in range(1, len(lms)):
         new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),136)), 0)
-    return new_lms, tgs, lens
+    if LANDMARK == 68:
+        return new_lms, tgs, lens
+    elif LANDMARK == 51:
+        return new_lms[:,:,34:], tgs, lens
+    else:
+        return 0
+
 
 if rnn == 'frameGRU':
     model = Framewise_GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
@@ -117,6 +124,7 @@ for epoch in range(MAX_EPOCH):
     n_iter = 0
     for batch, labels, lengths in dataloader_train:
         model.zero_grad()
+        # import pdb; pdb.set_trace()
         out = model(batch.cuda(), lengths)  # we could do a classifcation for every output (probably better)
         if rnn == 'frameGRU':
             new_labels_list = []
@@ -139,10 +147,8 @@ for epoch in range(MAX_EPOCH):
         best_test_acc = test_acc
         if SAVE_BEST_MODEL:
             torch.save(model.state_dict(), 'models/' + rnn +
-                       '_L' + str(N_LAYERS_RNN) + '_GC.pt')
+                       '_L' + str(N_LAYERS_RNN) + '_LM'+ str(LANDMARK) + '.pt')
         print('best epoch {}, train_acc {}, test_acc {}'.format(epoch, train_acc, test_acc))
-
-
 
 
 
