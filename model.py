@@ -163,10 +163,10 @@ class sumGRU(nn.Module):
 
 class cnn_Classifier(nn.Module):
 
-    def __init__(self, embedding_dim, hidden_dim, target_size=1, bidirectional=False):
+    def __init__(self, n_cnn_layers, embedding_dim, hidden_dim, target_size=1, bidirectional=False):
         super(cnn_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
-        self.n_layers = 8  # 2, 4, 6 ,8
+        self.n_layers = n_cnn_layers  # 2, 4, 6 ,8
         if self.n_layers >= 2:
             self.conv1 = nn.Conv1d(in_channels=embedding_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
             self.conv2 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
@@ -212,36 +212,39 @@ class cnn_Classifier(nn.Module):
         else:
             print('Not specify n_layers')
         # Permute back: (b, dim, d_seq) --> (b, seq, dim)
-        landmarks = landmarks.permute(0, 2, 1)
-        # flat it to feed into fc: (b x seq, dim)
-        landmarks = landmarks.contiguous()
-        batch_size, seq_len, dim_feature = landmarks.shape
-        landmarks = landmarks.view(-1, dim_feature)
+        # import pdb;
+        # pdb.set_trace()
+        landmarks = self.glbAvgPool(landmarks).squeeze(-1)
+        # landmarks = landmarks.permute(0, 2, 1)
+        # # flat it to feed into fc: (b x seq, dim)
+        # landmarks = landmarks.contiguous()
+        # batch_size, seq_len, dim_feature = landmarks.shape
+        # landmarks = landmarks.view(-1, dim_feature)
         landmarks = F.tanh(self.lc1(self.dropout(landmarks)))  # (b x seq, 1)
         landmarks = self.lc2(self.dropout(landmarks))
         # unflat back to (b, seq, 1)
-        landmarks = landmarks.view(batch_size, seq_len, 1)
+        # landmarks = landmarks.view(batch_size, seq_len, 1)
+        # import pdb; pdb.set_trace()
+        # logit_list = []
+        # if self.n_layers == 8 or self.n_layers == 6:
+        #     for i, landmark in enumerate(landmarks):
+        #         logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/8)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
+        # if self.n_layers == 4:
+        #     for i, landmark in enumerate(landmarks):
+        #         logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/4)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
+        # if self.n_layers == 2:
+        #     for i, landmark in enumerate(landmarks):
+        #         logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/2)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
 
-        logit_list = []
-        if self.n_layers == 8 or self.n_layers == 6:
-            for i, landmark in enumerate(landmarks):
-                logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/8)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
-        if self.n_layers == 4:
-            for i, landmark in enumerate(landmarks):
-                logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/4)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
-        if self.n_layers == 2:
-            for i, landmark in enumerate(landmarks):
-                logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/2)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
-
-        return torch.cat(logit_list)
-
+        # return torch.cat(logit_list)
+        return landmarks
 
 class crnn_Classifier(nn.Module):
 
-    def __init__(self, embedding_dim, hidden_dim, target_size=1, bidirectional=False, n_layer=1):
+    def __init__(self, n_layers_cnn, embedding_dim, hidden_dim, target_size=1, bidirectional=False, n_layer=1):
         super(crnn_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
-        self.n_layers = 4 # 2, 4, 6 ,8
+        self.n_layers = n_layers_cnn # 2, 4, 6 ,8
         if self.n_layers >= 2:
             self.conv1 = nn.Conv1d(in_channels=embedding_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
             self.conv2 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)

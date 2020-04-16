@@ -13,15 +13,17 @@ from model import *
 # to be implemented - rnn = 'frameCRNN'
 # rnn = 'sumGRU'
 # rnn = 'crnn'
-# rnn = 'cnn'
+rnn = 'cnn'
 # rnn = 'GRU'
 # rnn = 'embedGRU'
-rnn = 'biGRU'
+# rnn = 'biGRU'
 # rnn = 'LSTM'
-LANDMARK = 51
+LANDMARK = 51 # 51 or 68
 EMBEDDING_DIM = LANDMARK*2
 HIDDEN_DIM = LANDMARK*2* 2
-N_LAYERS_RNN = 3
+N_LAYERS_RNN = 1
+N_LAYERS_CNN = 8
+SIZE_CNN_SAMPLE = 128 #192 / 256 / 128 / 64
 MAX_EPOCH = 1000
 LR = 1e-4
 DEVICES = 3
@@ -71,18 +73,32 @@ def compute_binary_accuracy(model, data_loader, loss_function):
 
 
 def pad_collate(batch):
-    batch.sort(key=lambda x: x[2], reverse=True)
-    lms, tgs, lens = zip(*batch)
-    new_lms = torch.zeros((len(lms), lms[0].shape[0], lms[0].shape[1])) # batch x seq x feature(136)
-    new_lms[0] = lms[0]
-    for i in range(1, len(lms)):
-        new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),136)), 0)
-    if LANDMARK == 68:
-        return new_lms, tgs, lens
-    elif LANDMARK == 51:
-        return new_lms[:,:,34:], tgs, lens
+    if rnn == 'cnn':
+        batch.sort(key=lambda x: x[2], reverse=True)
+        lms, tgs, lens = zip(*batch)
+        new_lms = torch.zeros((len(lms), SIZE_CNN_SAMPLE, lms[0].shape[1]))  # batch x seq x feature(136)
+        for i in range(len(lms)):
+            # import pdb; pdb.set_trace()
+            new_lms[i] = F.interpolate(lms[i].unsqueeze(0).permute(0, 2, 1), size=SIZE_CNN_SAMPLE, mode='nearest').permute(0, 2, 1).squeeze(0)#.permutenn.Upsample(size=None, scale_factor=None, mode='nearest', align_corners=None)
+        if LANDMARK == 68:
+            return new_lms, tgs, lens
+        elif LANDMARK == 51:
+            return new_lms[:, :, 34:], tgs, lens
+        else:
+            return 0
     else:
-        return 0
+        batch.sort(key=lambda x: x[2], reverse=True)
+        lms, tgs, lens = zip(*batch)
+        new_lms = torch.zeros((len(lms), lms[0].shape[0], lms[0].shape[1])) # batch x seq x feature(136)
+        new_lms[0] = lms[0]
+        for i in range(1, len(lms)):
+            new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),136)), 0)
+        if LANDMARK == 68:
+            return new_lms, tgs, lens
+        elif LANDMARK == 51:
+            return new_lms[:,:,34:], tgs, lens
+        else:
+            return 0
 
 
 if rnn == 'frameGRU':
@@ -100,9 +116,9 @@ if rnn == 'biGRU':
 if rnn == 'LSTM':
     model = LSTM_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'cnn':
-    model = cnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1)
+    model = cnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1)
 if rnn == 'crnn':
-    model = crnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
+    model = crnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 model = model.cuda()
 
 loss_function = torch.nn.BCEWithLogitsLoss()
@@ -146,8 +162,10 @@ for epoch in range(MAX_EPOCH):
     if test_acc > best_test_acc:
         best_test_acc = test_acc
         if SAVE_BEST_MODEL:
-            torch.save(model.state_dict(), 'models/' + rnn +
-                       '_L' + str(N_LAYERS_RNN) + '_LM'+ str(LANDMARK) + '.pt')
+            name = 'models/' + rnn + '_L' + str(N_LAYERS_RNN) + '_LM'+ str(LANDMARK) + '.pt'
+            if rnn == 'cnn':
+                name = name[:-3] + '_frame' + str(SIZE_CNN_SAMPLE) + name[-3:]
+            torch.save(model.state_dict(), name)
         print('best epoch {}, train_acc {}, test_acc {}'.format(epoch, train_acc, test_acc))
 
 
