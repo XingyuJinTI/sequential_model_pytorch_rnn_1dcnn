@@ -18,12 +18,12 @@ rnn = 'cnn'
 # rnn = 'embedGRU'
 # rnn = 'biGRU'
 # rnn = 'LSTM'
-LANDMARK = 51
+LANDMARK = 68
 EMBEDDING_DIM = LANDMARK*2
 HIDDEN_DIM = LANDMARK*2* 2
 N_LAYERS_RNN = 3
 N_LAYERS_CNN = 8
-SIZE_CNN_SAMPLE = 128
+SIZE_CNN_SAMPLE = 192
 LR = 1e-4
 DEVICES = 0
 torch.cuda.set_device(DEVICES)
@@ -95,25 +95,27 @@ if rnn == 'frameGRU':
     model = Framewise_GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'sumGRU':
     model = sumGRU(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
-    model.load_state_dict(torch.load("models/"+str(rnn)+'_L' + str(N_LAYERS_RNN) + ".pt"))
+    model_name = "models/"+str(rnn)+'_L' + str(N_LAYERS_RNN) + ".pt"
 if rnn == 'embedGRU':
     model = embed_GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
-    model.load_state_dict(torch.load("models/" + str(rnn) + "_L3.pt"))
+    model_name = "models/" + str(rnn) + "_L3.pt"
 if rnn == 'GRU':
     model = GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'biGRU':
     model = biGRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
-    model.load_state_dict(torch.load("models/"+str(rnn)+'_L' + str(N_LAYERS_RNN) + ".pt"))
+    model_name = "models/"+str(rnn)+'_L' + str(N_LAYERS_RNN) + ".pt"
 if rnn == 'LSTM':
     model = LSTM_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'cnn':
     model = cnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1)
     # model.load_state_dict(torch.load("models/" + str(rnn) + "8.pt"))
-    model.load_state_dict(torch.load("models/cnn_LM"+str(LANDMARK)+".pt"))
+    model_name = "models/cnn" + '_L' + str(N_LAYERS_CNN) +'_LM'+  str(LANDMARK)+ '_frame' + str(SIZE_CNN_SAMPLE) + ".pt"
 if rnn == 'crnn':
     model = crnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
-    model.load_state_dict(torch.load("models/" + str(rnn) + '_L' + str(N_LAYERS_RNN) + "_GC.pt"))
+    model_name = "models/" + str(rnn) + '_L' + str(N_LAYERS_RNN) + "_GC.pt"
 
+print('Model is loading: ', model_name)
+model.load_state_dict(torch.load(model_name))
 # model.load_state_dict(torch.load("models/"+str(rnn)+'_L' + str(N_LAYERS_RNN) + "_GC.pt"))
 model = model.cuda()
 
