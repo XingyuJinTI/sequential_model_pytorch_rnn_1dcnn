@@ -11,9 +11,9 @@ from model import *
 
 # rnn = 'frameGRU'
 # to be implemented - rnn = 'frameCRNN'
-rnn = 'sumGRU'
+# rnn = 'sumGRU'
 # rnn = 'crnn'
-# rnn = 'cnn'
+rnn = 'cnn'
 # rnn = 'GRU'
 # rnn = 'embedGRU'
 # rnn = 'biGRU'
@@ -21,10 +21,12 @@ rnn = 'sumGRU'
 EMBEDDING_DIM = int(68 * 67 /2)
 HIDDEN_DIM = 128
 N_LAYERS_RNN = 1
-MAX_EPOCH = 30000
+MAX_EPOCH = 10000
 LR = 1e-4
 DEVICES = 3
 SAVE_BEST_MODEL = True
+SIZE_CNN_SAMPLE = 192
+N_LAYERS_CNN = 6
 torch.cuda.set_device(DEVICES)
 
 
@@ -69,13 +71,48 @@ def compute_binary_accuracy(model, data_loader, loss_function):
 
 
 def pad_collate(batch):
-    batch.sort(key=lambda x: x[2], reverse=True)
-    lms, tgs, lens = zip(*batch)
-    new_lms = torch.zeros((len(lms), lms[0].shape[0], lms[0].shape[1])) # batch x seq x feature(136)
-    new_lms[0] = lms[0]
-    for i in range(1, len(lms)):
-        new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),EMBEDDING_DIM)), 0)
-    return new_lms, tgs, lens
+    if rnn == 'cnn':
+        batch.sort(key=lambda x: x[2], reverse=True)
+        lms, tgs, lens = zip(*batch)
+        # sample_cnn = SIZE_CNN_SAMPLE
+        base = 32
+        if lms[0].shape[0] < base:
+            sample_cnn = 16
+        elif lms[0].shape[0] < base * 2:
+            sample_cnn = base * 1
+        elif lms[0].shape[0] < base * 3:
+            sample_cnn = base * 2
+        elif lms[0].shape[0] < base * 4:
+            sample_cnn = base * 3
+        elif lms[0].shape[0] < base * 5:
+            sample_cnn = base * 4
+        elif lms[0].shape[0] < base * 6:
+            sample_cnn = base * 5
+        elif lms[0].shape[0] < base * 7:
+            sample_cnn = base * 6
+        elif lms[0].shape[0] < base * 8:
+            sample_cnn = base * 7
+        elif lms[0].shape[0] < base * 9:
+            sample_cnn = base * 8
+        elif lms[0].shape[0] < base * 10:
+            sample_cnn = base * 9
+        else:
+            sample_cnn = base * 10
+        new_lms = torch.zeros((len(lms), sample_cnn, lms[0].shape[1]))  # batch x seq x feature(136)
+        for i in range(len(lms)):
+            # import pdb; pdb.set_trace()
+            new_lms[i] = F.interpolate(lms[i].unsqueeze(0).permute(0, 2, 1), size=sample_cnn,
+                                       mode='nearest').permute(0, 2, 1).squeeze(
+                0)  # .permutenn.Upsample(size=None, scale_factor=None, mode='nearest', align_corners=None)
+        return new_lms, tgs, lens
+    else:
+        batch.sort(key=lambda x: x[2], reverse=True)
+        lms, tgs, lens = zip(*batch)
+        new_lms = torch.zeros((len(lms), lms[0].shape[0], lms[0].shape[1])) # batch x seq x feature(136)
+        new_lms[0] = lms[0]
+        for i in range(1, len(lms)):
+            new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),EMBEDDING_DIM)), 0)
+        return new_lms, tgs, lens
 
 if rnn == 'frameGRU':
     model = Framewise_GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
@@ -92,7 +129,7 @@ if rnn == 'biGRU':
 if rnn == 'LSTM':
     model = LSTM_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'cnn':
-    model = cnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1)
+    model = cnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1)
 if rnn == 'crnn':
     model = crnn_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 model = model.cuda()
