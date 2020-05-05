@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import torch.nn.functional as F
 import torch.utils.data as data
 
 import os
@@ -39,7 +40,7 @@ class LandmarkList(data.Dataset):
         lmPath, target = self.lmList[index]
         lm = self.loader(os.path.join(self.root, lmPath))
         if self.transform is not None:
-            lm = self.transform(lm)
+            lm = F.normalize(lm, dim=0)
         return lm, target, lm.shape[0]
 
     def __len__(self):
@@ -57,7 +58,7 @@ class LandmarkListTest(data.Dataset):
         lmPath, target = self.lmList[index]
         lm = self.loader(os.path.join(self.root, lmPath))
         if self.transform is not None:
-            lm = self.transform(lm)
+            lm = F.normalize(lm, dim=0)
         return lm, target, lm.shape[0], lmPath
 
     def __len__(self):

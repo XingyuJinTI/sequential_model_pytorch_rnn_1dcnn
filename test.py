@@ -18,12 +18,12 @@ rnn = 'cnn'
 # rnn = 'embedGRU'
 # rnn = 'biGRU'
 # rnn = 'LSTM'
-LANDMARK = 68
-EMBEDDING_DIM = LANDMARK*2
-HIDDEN_DIM = LANDMARK*2* 2
+LANDMARK = 6
+EMBEDDING_DIM = LANDMARK
+HIDDEN_DIM = LANDMARK*2
 N_LAYERS_RNN = 3
-N_LAYERS_CNN = 8
-SIZE_CNN_SAMPLE = 192
+N_LAYERS_CNN = 4
+SIZE_CNN_SAMPLE = 128
 LR = 1e-4
 DEVICES = 0
 torch.cuda.set_device(DEVICES)
@@ -68,9 +68,10 @@ def compute_binary_accuracy(model, data_loader, th_list):
             return [n_correct/num_examples * 100 for n_correct in correct_pred], FP, FN, FP_list, FN_list
         else:
             for batch, labels, lengths, f_names in data_loader:
-                if LANDMARK == 51:
-                    batch = batch[:,:,34:]
+                if LANDMARK == 3:
+                    batch = batch[:,:,3:]
                 if rnn == 'cnn':
+                    # import pdb; pdb.set_trace()
                     batch = F.interpolate(batch[0].unsqueeze(0).permute(0, 2, 1), size=SIZE_CNN_SAMPLE,
                                           mode='nearest').permute(0, 2, 1)
                 # import pdb; pdb.set_trace()
@@ -123,10 +124,10 @@ loss_function = torch.nn.BCEWithLogitsLoss()
 loss_function_eval_sum = torch.nn.BCEWithLogitsLoss(reduction='sum')
 optimizer = optim.Adam(model.parameters(), lr=LR)
 
-dataset_train = LandmarkListTest(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TrainList.txt')
+dataset_train = LandmarkListTest(root='/datasets/mc_m_min16frame/', fileList='/datasets/mc_m_min16frame/TrainListM.txt')
 dataloader_train = data.DataLoader(dataset_train, batch_size=1, shuffle=False, num_workers=0)#, collate_fn=pad_collate)
 
-dataset_test = LandmarkListTest(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TestList.txt')
+dataset_test = LandmarkListTest(root='/datasets/mc_m_min16frame/', fileList='/datasets/mc_m_min16frame/TestListM.txt')
 dataloader_test = data.DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=0)#, collate_fn=pad_collate)
 
 # thresholds = [x * 0.01 for x in range(30, 71)]

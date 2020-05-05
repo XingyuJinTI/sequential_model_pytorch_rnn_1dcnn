@@ -9,24 +9,26 @@ import argparse
 
 from model import *
 
+# rnn = 'resnet'
 # rnn = 'frameGRU'
 # to be implemented - rnn = 'frameCRNN'
 # rnn = 'sumGRU'
 # rnn = 'crnn'
-rnn = 'cnn'
+# rnn = 'cnn'
 # rnn = 'GRU'
 # rnn = 'embedGRU'
 # rnn = 'biGRU'
-# rnn = 'LSTM'
-LANDMARK = 68 # 51 or 68
-EMBEDDING_DIM = LANDMARK*2
-HIDDEN_DIM = LANDMARK*2* 2
-N_LAYERS_RNN = 1
-N_LAYERS_CNN = 8
-SIZE_CNN_SAMPLE = 256 #192 / 256 / 128 / 64
-MAX_EPOCH = 1000
-LR = 1e-4
-DEVICES = 3
+rnn = 'LSTM'
+LANDMARK = 6 # 3 # THIS IS DIMENSION OF FEATURES
+EMBEDDING_DIM = LANDMARK
+HIDDEN_DIM = LANDMARK*2
+N_LAYERS_CNN = 4
+KERNEL_CNN = 11
+N_LAYERS_RNN = 3
+SIZE_CNN_SAMPLE = 128 #192 / 256 / 128 / 64
+MAX_EPOCH = 5000
+LR = 1e-3
+DEVICES = 1
 SAVE_BEST_MODEL = True
 Grad_Clip_For_All = False # always False please. I tried, nothing better.
 torch.cuda.set_device(DEVICES)
@@ -73,34 +75,73 @@ def compute_binary_accuracy(model, data_loader, loss_function):
 
 
 def pad_collate(batch):
-    if rnn == 'cnn':
-        batch.sort(key=lambda x: x[2], reverse=True)
+    if rnn == 'cnn' or rnn == 'resnet':
+        # batch.sort(key=lambda x: x[2], reverse=True)
         lms, tgs, lens = zip(*batch)
-        new_lms = torch.zeros((len(lms), SIZE_CNN_SAMPLE, lms[0].shape[1]))  # batch x seq x feature(136)
+        sample_cnn = SIZE_CNN_SAMPLE
+        # base = 32
+        # if lms[0].shape[0] < base:
+        #     sample_cnn = 16
+        # elif lms[0].shape[0] < base * 2:
+        #     sample_cnn = base * 1
+        # elif lms[0].shape[0] < base * 3:
+        #     sample_cnn = base * 2
+        # elif lms[0].shape[0] < base * 4:
+        #     sample_cnn = base * 3
+        # elif lms[0].shape[0] < base * 5:
+        #     sample_cnn = base * 4
+        # elif lms[0].shape[0] < base * 6:
+        #     sample_cnn = base * 5
+        # elif lms[0].shape[0] < base * 7:
+        #     sample_cnn = base * 6
+        # elif lms[0].shape[0] < base * 8:
+        #     sample_cnn = base * 7
+        # elif lms[0].shape[0] < base * 9:
+        #     sample_cnn = base * 8
+        # elif lms[0].shape[0] < base * 10:
+        #     sample_cnn = base * 9
+        # else:
+        #     sample_cnn = base * 10
+        new_lms = torch.zeros((len(lms), sample_cnn, lms[0].shape[1]))  # batch x seq x feature(136)
         for i in range(len(lms)):
             # import pdb; pdb.set_trace()
-            new_lms[i] = F.interpolate(lms[i].unsqueeze(0).permute(0, 2, 1), size=SIZE_CNN_SAMPLE, mode='nearest').permute(0, 2, 1).squeeze(0)#.permutenn.Upsample(size=None, scale_factor=None, mode='nearest', align_corners=None)
-        if LANDMARK == 68:
+            new_lms[i] = F.interpolate(lms[i].unsqueeze(0).permute(0, 2, 1), size=sample_cnn,
+                                       mode='nearest').permute(0, 2, 1).squeeze(
+                0)  # .permutenn.Upsample(size=None, scale_factor=None, mode='nearest', align_corners=None)
+        if LANDMARK == 6:
             return new_lms, tgs, lens
-        elif LANDMARK == 51:
-            return new_lms[:, :, 34:], tgs, lens
+        elif LANDMARK == 3:
+            return new_lms[:, :, 3:], tgs, lens
         else:
             return 0
+        # batch.sort(key=lambda x: x[2], reverse=True)
+        # lms, tgs, lens = zip(*batch)
+        # new_lms = torch.zeros((len(lms), SIZE_CNN_SAMPLE, lms[0].shape[1]))  # batch x seq x feature(136)
+        # for i in range(len(lms)):
+        #     # import pdb; pdb.set_trace()
+        #     new_lms[i] = F.interpolate(lms[i].unsqueeze(0).permute(0, 2, 1), size=SIZE_CNN_SAMPLE, mode='nearest').permute(0, 2, 1).squeeze(0)#.permutenn.Upsample(size=None, scale_factor=None, mode='nearest', align_corners=None)
+        # if LANDMARK == 6:
+        #     return new_lms, tgs, lens
+        # elif LANDMARK == 3:
+        #     return new_lms[:, :, 3:], tgs, lens
+        # else:
+        #     return 0
     else:
         batch.sort(key=lambda x: x[2], reverse=True)
         lms, tgs, lens = zip(*batch)
         new_lms = torch.zeros((len(lms), lms[0].shape[0], lms[0].shape[1])) # batch x seq x feature(136)
         new_lms[0] = lms[0]
         for i in range(1, len(lms)):
-            new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),136)), 0)
-        if LANDMARK == 68:
+            new_lms[i] = torch.cat((lms[i], torch.zeros((lens[0] - lens[i]),EMBEDDING_DIM)), 0)
+        if LANDMARK == 6:
             return new_lms, tgs, lens
-        elif LANDMARK == 51:
-            return new_lms[:,:,34:], tgs, lens
+        elif LANDMARK == 3:
+            return new_lms[:,:,3:], tgs, lens
         else:
             return 0
 
-
+if rnn == 'resnet':
+    model = ResNet1d(EMBEDDING_DIM, HIDDEN_DIM, 1, sample_cnn=SIZE_CNN_SAMPLE)
 if rnn == 'frameGRU':
     model = Framewise_GRU_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'frameCRNN':
@@ -116,7 +157,7 @@ if rnn == 'biGRU':
 if rnn == 'LSTM':
     model = LSTM_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'cnn':
-    model = cnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1)
+    model = cnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, KERNEL_CNN)
 if rnn == 'crnn':
     model = crnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 model = model.cuda()
@@ -125,13 +166,14 @@ loss_function = torch.nn.BCEWithLogitsLoss()
 loss_function_eval_sum = torch.nn.BCEWithLogitsLoss(reduction='sum')
 optimizer = optim.Adam(model.parameters(), lr=LR)
 
-dataset_train = LandmarkList(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TrainList.txt')
+transform = None #'normalization'
+dataset_train = LandmarkList(root='/datasets/mc_m_min16frame/', fileList='/datasets/mc_m_min16frame/TrainListM.txt', transform=transform)
 dataloader_train = data.DataLoader(dataset_train, batch_size=128, shuffle=True, num_workers=2, collate_fn=pad_collate)
 # if rnn == 'frameGRU':
 #     dataloader_train = data.DataLoader(dataset_train, batch_size=8, shuffle=True, num_workers=2,
 #                                        collate_fn=pad_collate)
 
-dataset_test = LandmarkList(root='/datasets/move_closer/Data_Landmark/', fileList='/datasets/move_closer/TestList.txt')
+dataset_test = LandmarkList(root='/datasets/mc_m_min16frame/', fileList='/datasets/mc_m_min16frame/TestListM.txt', transform=transform)
 dataloader_test = data.DataLoader(dataset_test, batch_size=64, shuffle=False, num_workers=1, collate_fn=pad_collate)
 
 best_test_acc = 0.
@@ -164,7 +206,7 @@ for epoch in range(MAX_EPOCH):
         if SAVE_BEST_MODEL:
             name = 'models/' + rnn + '_L' + str(N_LAYERS_RNN) + '_LM'+ str(LANDMARK) + '.pt'
             if rnn == 'cnn':
-                name = name[:-3] + '_frame' + str(SIZE_CNN_SAMPLE) + name[-3:]
+                name = name[:-3] + '_frame' + str(SIZE_CNN_SAMPLE) + '_kernel' + str(KERNEL_CNN) + name[-3:]
             torch.save(model.state_dict(), name)
         print('best epoch {}, train_acc {}, test_acc {}'.format(epoch, train_acc, test_acc))
 

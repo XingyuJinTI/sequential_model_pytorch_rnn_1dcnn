@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from resnet1d import *
 
-
-DROPOUT = 0.5
+DROPOUT = 0.8
 
 
 class LSTM_Classifier(nn.Module):
@@ -163,25 +163,26 @@ class sumGRU(nn.Module):
 
 class cnn_Classifier(nn.Module):
 
-    def __init__(self, n_cnn_layers, embedding_dim, hidden_dim, target_size=1, bidirectional=False):
+    def __init__(self, n_cnn_layers, embedding_dim, hidden_dim, target_size=1, kernal_size=3):
         super(cnn_Classifier, self).__init__()
         self.hidden_dim = hidden_dim
+        print('kenel size is ', kernal_size)
         self.n_layers = n_cnn_layers  # 2, 4, 6 ,8
         if self.n_layers >= 2:
-            self.conv1 = nn.Conv1d(in_channels=embedding_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
-            self.conv2 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
+            self.conv1 = nn.Conv1d(in_channels=embedding_dim, out_channels=hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv2 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=kernal_size, padding=1)
             self.bn1 = nn.BatchNorm1d(num_features=self.hidden_dim)
             self.bn2 = nn.BatchNorm1d(num_features=self.hidden_dim)
             self.p1 = nn.MaxPool1d(kernel_size=2)
         if self.n_layers >= 4:
-            self.conv3 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
-            self.conv4 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
+            self.conv3 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv4 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=kernal_size, padding=1)
             self.bn3 = nn.BatchNorm1d(num_features=self.hidden_dim)
             self.bn4 = nn.BatchNorm1d(num_features=self.hidden_dim)
             self.p2 = nn.MaxPool1d(kernel_size=2)
         if self.n_layers >= 6:
-            self.conv5 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
-            self.conv6 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
+            self.conv5 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv6 = nn.Conv1d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=kernal_size, padding=1)
             self.bn5 = nn.BatchNorm1d(num_features=self.hidden_dim)
             self.bn6 = nn.BatchNorm1d(num_features=self.hidden_dim)
             self.p3 = nn.MaxPool1d(kernel_size=2)
@@ -238,6 +239,29 @@ class cnn_Classifier(nn.Module):
 
         # return torch.cat(logit_list)
         return landmarks
+
+
+class ResNet1d(nn.Module):
+
+    def __init__(self, embedding_dim, hidden_dim, target_size=1, sample_cnn=128):
+        super(ResNet1d, self).__init__()
+        self.hidden_dim = hidden_dim
+        self.sample_cnn = sample_cnn
+        self.resnet = ResNet(embedding_dim, hidden_dim, BasicBlock, [2,2,2,2], sample_cnn, dropout=DROPOUT)
+
+        # self.glbAvgPool = nn.AdaptiveAvgPool1d(1)
+
+
+    def forward(self, landmarks, lengths):
+        landmarks = landmarks.permute(0, 2, 1)  # (b, seq, dim) --> (b, dim, seq)
+
+        landmarks = self.resnet(landmarks) # (b, dim=1, seq)
+        # landmarks = self.glbAvgPool(landmarks).squeeze(-1)
+        # landmarks = F.tanh(self.lc1(self.dropout(landmarks)))  # (b x seq, 1)
+        # landmarks = self.lc2(self.dropout(landmarks))
+        return landmarks
+
+
 
 class crnn_Classifier(nn.Module):
 
