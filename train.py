@@ -9,6 +9,10 @@ import argparse
 
 from model import *
 
+# rnn = "twoStreamCNN"
+rnn = "twoStreamCNN_add"
+rnn = "twoStreamCNN_scorefusion"
+
 # rnn = 'resnet'
 # rnn = 'frameGRU'
 # to be implemented - rnn = 'frameCRNN'
@@ -18,12 +22,12 @@ from model import *
 # rnn = 'GRU'
 # rnn = 'embedGRU'
 # rnn = 'biGRU'
-rnn = 'LSTM'
+# rnn = 'LSTM'
 LANDMARK = 6 # 3 # THIS IS DIMENSION OF FEATURES
 EMBEDDING_DIM = LANDMARK
 HIDDEN_DIM = LANDMARK*2
-N_LAYERS_CNN = 4
-KERNEL_CNN = 11
+N_LAYERS_CNN = 8
+KERNEL_CNN = 3
 N_LAYERS_RNN = 3
 SIZE_CNN_SAMPLE = 128 #192 / 256 / 128 / 64
 MAX_EPOCH = 5000
@@ -111,7 +115,10 @@ def pad_collate(batch):
         if LANDMARK == 6:
             return new_lms, tgs, lens
         elif LANDMARK == 3:
+            # Accelerometers
             return new_lms[:, :, 3:], tgs, lens
+            # Gyroscope
+            # return new_lms[:, :, :3], tgs, lens
         else:
             return 0
         # batch.sort(key=lambda x: x[2], reverse=True)
@@ -140,6 +147,12 @@ def pad_collate(batch):
         else:
             return 0
 
+if rnn == "twoStreamCNN_scorefusion":
+    model = two_stream_cnn_score(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, KERNEL_CNN)
+if rnn == "twoStreamCNN_add":
+    model = two_stream_cnn_add(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, KERNEL_CNN)
+if rnn == "twoStreamCNN":
+    model = two_stream_cnn_cat(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, KERNEL_CNN)
 if rnn == 'resnet':
     model = ResNet1d(EMBEDDING_DIM, HIDDEN_DIM, 1, sample_cnn=SIZE_CNN_SAMPLE)
 if rnn == 'frameGRU':
@@ -206,7 +219,9 @@ for epoch in range(MAX_EPOCH):
         if SAVE_BEST_MODEL:
             name = 'models/' + rnn + '_L' + str(N_LAYERS_RNN) + '_LM'+ str(LANDMARK) + '.pt'
             if rnn == 'cnn':
-                name = name[:-3] + '_frame' + str(SIZE_CNN_SAMPLE) + '_kernel' + str(KERNEL_CNN) + name[-3:]
+                name =  'models/' + rnn + '_L' + str(N_LAYERS_CNN) + '_LM'+ str(LANDMARK) + '_frame' + str(SIZE_CNN_SAMPLE) + '_kernel' + str(KERNEL_CNN) + '.pt'
+            if rnn.find('twoStreamCNN')>-1:
+                name =  'models/' + rnn + '_L' + str(N_LAYERS_CNN) + '_LM'+ str(LANDMARK) + '_frame' + str(SIZE_CNN_SAMPLE) + '_kernel' + str(KERNEL_CNN) + '.pt'
             torch.save(model.state_dict(), name)
         print('best epoch {}, train_acc {}, test_acc {}'.format(epoch, train_acc, test_acc))
 

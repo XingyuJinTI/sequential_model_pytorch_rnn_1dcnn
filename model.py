@@ -241,6 +241,330 @@ class cnn_Classifier(nn.Module):
         return landmarks
 
 
+class two_stream_cnn_cat(nn.Module):
+
+    def __init__(self, n_cnn_layers, embedding_dim, hidden_dim, target_size=1, kernal_size=3):
+        super(two_stream_cnn_cat, self).__init__()
+        self.hidden_dim = 6
+        print('kenel size is ', kernal_size)
+        self.n_layers = n_cnn_layers  # 2, 4, 6 ,8
+        # ACCELEROMETERS
+        if self.n_layers >= 2:
+            self.conv1 = nn.Conv1d(in_channels=3, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv2 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.bn1 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn2 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.p1 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 4:
+            self.conv3 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv4 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.bn3 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn4 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.p2 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 6:
+            self.conv5 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv6 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.bn5 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn6 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.p3 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers == 8:
+            self.conv7 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.conv8 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.bn7 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn8 = nn.BatchNorm1d(num_features=self.hidden_dim)
+
+        # Gyroscope
+        if self.n_layers >= 2:
+            self.gconv1 = nn.Conv1d(in_channels=3, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gconv2 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gbn1 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn2 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gp1 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 4:
+            self.gconv3 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gconv4 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gbn3 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn4 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gp2 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 6:
+            self.gconv5 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gconv6 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gbn5 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn6 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gp3 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers == 8:
+            self.gconv7 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.gconv8 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.gbn7 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn8 = nn.BatchNorm1d(num_features=self.hidden_dim)
+
+
+        self.glbAvgPool = nn.AdaptiveAvgPool1d(1)
+
+        self.dropout = nn.Dropout(DROPOUT)
+        # The linear layer that maps from hidden state space to tag space
+        self.lc1 = nn.Linear(12, embedding_dim)
+        self.lc2 = nn.Linear(embedding_dim, target_size)
+
+    def forward(self, landmarks, lengths):
+        landmarks = landmarks.permute(0, 2, 1)  # (b, seq, dim) --> (b, dim, seq)
+        # Convolve on Seq for each dim to get (b, dim, seq)
+        if self.n_layers == 8:
+            alandmarks = F.relu(self.bn8(self.conv8(F.relu(self.bn7(self.conv7(self.p3(F.relu(self.bn6(self.conv6(F.relu(self.bn5(self.conv5(self.p2(F.relu(self.bn4(self.conv4(F.relu(self.bn3(self.conv3(self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:])))))))))))))))))))))))))))
+            glandmarks = F.relu(self.gbn8(self.gconv8(F.relu(self.gbn7(self.gconv7(self.gp3(F.relu(self.gbn6(self.gconv6(F.relu(self.gbn5(self.gconv5(self.gp2(F.relu(self.gbn4(self.gconv4(F.relu(self.gbn3(self.gconv3(self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:])))))))))))))))))))))))))))
+        elif self.n_layers == 6:
+            alandmarks = self.p3(F.relu(self.bn6(self.conv6(F.relu(self.bn5(self.conv5(self.p2(F.relu(self.bn4(self.conv4(F.relu(self.bn3(self.conv3(self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:])))))))))))))))))))))
+            glandmarks = self.gp3(F.relu(self.gbn6(self.gconv6(F.relu(self.gbn5(self.gconv5(self.gp2(F.relu(self.gbn4(self.gconv4(F.relu(self.gbn3(self.gconv3(self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:])))))))))))))))))))))
+        elif self.n_layers == 4:
+            alandmarks = self.p2(F.relu(self.bn4(self.conv4(F.relu(self.bn3(self.conv3(self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:]))))))))))))))
+            glandmarks = self.gp2(F.relu(self.gbn4(self.gconv4(F.relu(self.gbn3(self.gconv3(self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:]))))))))))))))
+        elif self.n_layers == 2:
+            alandmarks = self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:])))))))
+            glandmarks = self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:])))))))
+        else:
+            print('Not specify n_layers')
+        # Permute back: (b, dim, d_seq) --> (b, seq, dim)
+        # import pdb;
+        # pdb.set_trace()
+        landmarks = torch.cat((alandmarks, glandmarks), 1)
+        landmarks = self.glbAvgPool(landmarks).squeeze(-1)
+        # landmarks = landmarks.permute(0, 2, 1)
+        # # flat it to feed into fc: (b x seq, dim)
+        # landmarks = landmarks.contiguous()
+        # batch_size, seq_len, dim_feature = landmarks.shape
+        # landmarks = landmarks.view(-1, dim_feature)
+        landmarks = F.tanh(self.lc1(self.dropout(landmarks)))  # (b x seq, 1)
+        landmarks = self.lc2(self.dropout(landmarks))
+        # unflat back to (b, seq, 1)
+        # landmarks = landmarks.view(batch_size, seq_len, 1)
+        # import pdb; pdb.set_trace()
+        # logit_list = []
+        # if self.n_layers == 8 or self.n_layers == 6:
+        #     for i, landmark in enumerate(landmarks):
+        #         logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/8)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
+        # if self.n_layers == 4:
+        #     for i, landmark in enumerate(landmarks):
+        #         logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/4)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
+        # if self.n_layers == 2:
+        #     for i, landmark in enumerate(landmarks):
+        #         logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/2)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
+
+        # return torch.cat(logit_list)
+        return landmarks
+
+
+class two_stream_cnn_add(nn.Module):
+
+    def __init__(self, n_cnn_layers, embedding_dim, hidden_dim, target_size=1, kernal_size=3):
+        super(two_stream_cnn_add, self).__init__()
+        self.hidden_dim = 6
+        print('kenel size is ', kernal_size)
+        self.n_layers = n_cnn_layers  # 2, 4, 6 ,8
+        # ACCELEROMETERS
+        if self.n_layers >= 2:
+            self.conv1 = nn.Conv1d(in_channels=3, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv2 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.bn1 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn2 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.p1 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 4:
+            self.conv3 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv4 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.bn3 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn4 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.p2 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 6:
+            self.conv5 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv6 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.bn5 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn6 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.p3 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers == 8:
+            self.conv7 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.conv8 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.bn7 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn8 = nn.BatchNorm1d(num_features=self.hidden_dim)
+
+        # Gyroscope
+        if self.n_layers >= 2:
+            self.gconv1 = nn.Conv1d(in_channels=3, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gconv2 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gbn1 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn2 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gp1 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 4:
+            self.gconv3 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gconv4 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gbn3 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn4 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gp2 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 6:
+            self.gconv5 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gconv6 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gbn5 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn6 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gp3 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers == 8:
+            self.gconv7 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.gconv8 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.gbn7 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn8 = nn.BatchNorm1d(num_features=self.hidden_dim)
+
+
+        self.glbAvgPool = nn.AdaptiveAvgPool1d(1)
+
+        self.dropout = nn.Dropout(DROPOUT)
+        # The linear layer that maps from hidden state space to tag space
+        self.lc1 = nn.Linear(6, embedding_dim)
+        self.lc2 = nn.Linear(embedding_dim, target_size)
+
+    def forward(self, landmarks, lengths):
+        landmarks = landmarks.permute(0, 2, 1)  # (b, seq, dim) --> (b, dim, seq)
+        # Convolve on Seq for each dim to get (b, dim, seq)
+        if self.n_layers == 8:
+            alandmarks = F.relu(self.bn8(self.conv8(F.relu(self.bn7(self.conv7(self.p3(F.relu(self.bn6(self.conv6(F.relu(self.bn5(self.conv5(self.p2(F.relu(self.bn4(self.conv4(F.relu(self.bn3(self.conv3(self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:])))))))))))))))))))))))))))
+            glandmarks = F.relu(self.gbn8(self.gconv8(F.relu(self.gbn7(self.gconv7(self.gp3(F.relu(self.gbn6(self.gconv6(F.relu(self.gbn5(self.gconv5(self.gp2(F.relu(self.gbn4(self.gconv4(F.relu(self.gbn3(self.gconv3(self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:])))))))))))))))))))))))))))
+        elif self.n_layers == 6:
+            alandmarks = self.p3(F.relu(self.bn6(self.conv6(F.relu(self.bn5(self.conv5(self.p2(F.relu(self.bn4(self.conv4(F.relu(self.bn3(self.conv3(self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:])))))))))))))))))))))
+            glandmarks = self.gp3(F.relu(self.gbn6(self.gconv6(F.relu(self.gbn5(self.gconv5(self.gp2(F.relu(self.gbn4(self.gconv4(F.relu(self.gbn3(self.gconv3(self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:])))))))))))))))))))))
+        elif self.n_layers == 4:
+            alandmarks = self.p2(F.relu(self.bn4(self.conv4(F.relu(self.bn3(self.conv3(self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:]))))))))))))))
+            glandmarks = self.gp2(F.relu(self.gbn4(self.gconv4(F.relu(self.gbn3(self.gconv3(self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:]))))))))))))))
+        elif self.n_layers == 2:
+            alandmarks = self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:])))))))
+            glandmarks = self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:])))))))
+        else:
+            print('Not specify n_layers')
+        # Permute back: (b, dim, d_seq) --> (b, seq, dim)
+        # import pdb;
+        # pdb.set_trace()
+        landmarks = alandmarks + glandmarks
+        landmarks = self.glbAvgPool(landmarks).squeeze(-1)
+        # landmarks = landmarks.permute(0, 2, 1)
+        # # flat it to feed into fc: (b x seq, dim)
+        # landmarks = landmarks.contiguous()
+        # batch_size, seq_len, dim_feature = landmarks.shape
+        # landmarks = landmarks.view(-1, dim_feature)
+        landmarks = F.tanh(self.lc1(self.dropout(landmarks)))  # (b x seq, 1)
+        landmarks = self.lc2(self.dropout(landmarks))
+        # unflat back to (b, seq, 1)
+        # landmarks = landmarks.view(batch_size, seq_len, 1)
+        # import pdb; pdb.set_trace()
+        # logit_list = []
+        # if self.n_layers == 8 or self.n_layers == 6:
+        #     for i, landmark in enumerate(landmarks):
+        #         logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/8)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
+        # if self.n_layers == 4:
+        #     for i, landmark in enumerate(landmarks):
+        #         logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/4)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
+        # if self.n_layers == 2:
+        #     for i, landmark in enumerate(landmarks):
+        #         logit_list.append(self.glbAvgPool(landmark[:int(lengths[i]/2)].unsqueeze(0).permute(0, 2, 1)).squeeze(-1))
+
+        # return torch.cat(logit_list)
+        return landmarks
+
+
+
+class two_stream_cnn_score(nn.Module):
+
+    def __init__(self, n_cnn_layers, embedding_dim, hidden_dim, target_size=1, kernal_size=3):
+        super(two_stream_cnn_score, self).__init__()
+        self.hidden_dim = 6
+        print('kenel size is ', kernal_size)
+        self.n_layers = n_cnn_layers  # 2, 4, 6 ,8
+        # ACCELEROMETERS
+        if self.n_layers >= 2:
+            self.conv1 = nn.Conv1d(in_channels=3, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv2 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.bn1 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn2 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.p1 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 4:
+            self.conv3 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv4 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.bn3 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn4 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.p2 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 6:
+            self.conv5 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.conv6 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.bn5 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn6 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.p3 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers == 8:
+            self.conv7 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.conv8 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.bn7 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.bn8 = nn.BatchNorm1d(num_features=self.hidden_dim)
+
+        # Gyroscope
+        if self.n_layers >= 2:
+            self.gconv1 = nn.Conv1d(in_channels=3, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gconv2 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gbn1 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn2 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gp1 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 4:
+            self.gconv3 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gconv4 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gbn3 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn4 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gp2 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers >= 6:
+            self.gconv5 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gconv6 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=kernal_size, padding=1)
+            self.gbn5 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn6 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gp3 = nn.MaxPool1d(kernel_size=2)
+        if self.n_layers == 8:
+            self.gconv7 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.gconv8 = nn.Conv1d(in_channels=self.hidden_dim, out_channels=self.hidden_dim, kernel_size=3, padding=1)
+            self.gbn7 = nn.BatchNorm1d(num_features=self.hidden_dim)
+            self.gbn8 = nn.BatchNorm1d(num_features=self.hidden_dim)
+
+
+        self.glbAvgPool = nn.AdaptiveAvgPool1d(1)
+
+        self.dropout = nn.Dropout(DROPOUT)
+        # The linear layer that maps from hidden state space to tag space
+        self.lc1 = nn.Linear(6, embedding_dim)
+        self.lc2 = nn.Linear(embedding_dim, target_size)
+
+        self.glc1 = nn.Linear(6, embedding_dim)
+        self.glc2 = nn.Linear(embedding_dim, target_size)
+
+    def forward(self, landmarks, lengths):
+        landmarks = landmarks.permute(0, 2, 1)  # (b, seq, dim) --> (b, dim, seq)
+        # Convolve on Seq for each dim to get (b, dim, seq)
+        if self.n_layers == 8:
+            alandmarks = F.relu(self.bn8(self.conv8(F.relu(self.bn7(self.conv7(self.p3(F.relu(self.bn6(self.conv6(F.relu(self.bn5(self.conv5(self.p2(F.relu(self.bn4(self.conv4(F.relu(self.bn3(self.conv3(self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:])))))))))))))))))))))))))))
+            glandmarks = F.relu(self.gbn8(self.gconv8(F.relu(self.gbn7(self.gconv7(self.gp3(F.relu(self.gbn6(self.gconv6(F.relu(self.gbn5(self.gconv5(self.gp2(F.relu(self.gbn4(self.gconv4(F.relu(self.gbn3(self.gconv3(self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:])))))))))))))))))))))))))))
+        elif self.n_layers == 6:
+            alandmarks = self.p3(F.relu(self.bn6(self.conv6(F.relu(self.bn5(self.conv5(self.p2(F.relu(self.bn4(self.conv4(F.relu(self.bn3(self.conv3(self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:])))))))))))))))))))))
+            glandmarks = self.gp3(F.relu(self.gbn6(self.gconv6(F.relu(self.gbn5(self.gconv5(self.gp2(F.relu(self.gbn4(self.gconv4(F.relu(self.gbn3(self.gconv3(self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:])))))))))))))))))))))
+        elif self.n_layers == 4:
+            alandmarks = self.p2(F.relu(self.bn4(self.conv4(F.relu(self.bn3(self.conv3(self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:]))))))))))))))
+            glandmarks = self.gp2(F.relu(self.gbn4(self.gconv4(F.relu(self.gbn3(self.gconv3(self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:]))))))))))))))
+        elif self.n_layers == 2:
+            alandmarks = self.p1(F.relu(self.bn2(self.conv2(F.relu(self.bn1(self.conv1(landmarks[:,3:,:])))))))
+            glandmarks = self.gp1(F.relu(self.gbn2(self.gconv2(F.relu(self.gbn1(self.gconv1(landmarks[:,:3,:])))))))
+        else:
+            print('Not specify n_layers')
+        # Permute back: (b, dim, d_seq) --> (b, seq, dim)
+        # import pdb;
+        # pdb.set_trace()
+        alandmarks = self.glbAvgPool(alandmarks).squeeze(-1)
+        alandmarks = F.tanh(self.lc1(self.dropout(alandmarks)))  # (b x seq, 1)
+        alandmarks = self.lc2(self.dropout(alandmarks))
+
+        glandmarks = self.glbAvgPool(glandmarks).squeeze(-1)
+        glandmarks = F.tanh(self.glc1(self.dropout(glandmarks)))  # (b x seq, 1)
+        glandmarks = self.glc2(self.dropout(glandmarks))
+
+        return (alandmarks+glandmarks) / 2
+
+
 class ResNet1d(nn.Module):
 
     def __init__(self, embedding_dim, hidden_dim, target_size=1, sample_cnn=128):
