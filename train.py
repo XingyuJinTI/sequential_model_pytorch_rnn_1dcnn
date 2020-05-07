@@ -10,15 +10,15 @@ import argparse
 from model import *
 
 # rnn = "twoStreamCNN"
-rnn = "twoStreamCNN_add"
-rnn = "twoStreamCNN_scorefusion"
+# rnn = "twoStreamCNN_add"
+# rnn = "twoStreamCNN_scorefusion"
 
 # rnn = 'resnet'
 # rnn = 'frameGRU'
 # to be implemented - rnn = 'frameCRNN'
 # rnn = 'sumGRU'
 # rnn = 'crnn'
-# rnn = 'cnn'
+rnn = 'cnn'
 # rnn = 'GRU'
 # rnn = 'embedGRU'
 # rnn = 'biGRU'
@@ -26,10 +26,10 @@ rnn = "twoStreamCNN_scorefusion"
 LANDMARK = 6 # 3 # THIS IS DIMENSION OF FEATURES
 EMBEDDING_DIM = LANDMARK
 HIDDEN_DIM = LANDMARK*2
-N_LAYERS_CNN = 8
+N_LAYERS_CNN = 4
 KERNEL_CNN = 3
 N_LAYERS_RNN = 3
-SIZE_CNN_SAMPLE = 128 #192 / 256 / 128 / 64
+SIZE_CNN_SAMPLE = 192 #192 / 256 / 128 / 64
 MAX_EPOCH = 5000
 LR = 1e-3
 DEVICES = 1
