@@ -163,8 +163,9 @@ class sumGRU(nn.Module):
 
 class cnn_Classifier(nn.Module):
 
-    def __init__(self, n_cnn_layers, embedding_dim, hidden_dim, target_size=1, kernal_size=3):
+    def __init__(self, n_cnn_layers, embedding_dim, hidden_dim, target_size=1, kernal_size=3, sample=192):
         super(cnn_Classifier, self).__init__()
+        self.sample = sample
         self.hidden_dim = hidden_dim
         print('kenel size is ', kernal_size)
         self.n_layers = n_cnn_layers  # 2, 4, 6 ,8
