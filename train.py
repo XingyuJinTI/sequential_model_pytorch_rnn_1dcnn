@@ -13,19 +13,19 @@ from model import *
 # rnn = 'frameGRU'
 # to be implemented - rnn = 'frameCRNN'
 # rnn = 'sumGRU'
-# rnn = 'crnn'
+rnn = 'crnn'
 # rnn = 'cnn'
 # rnn = 'GRU'
 # rnn = 'embedGRU'
 # rnn = 'biGRU'
-rnn = 'LSTM'
+# rnn = 'LSTM'
 LANDMARK = 6 # 3 # THIS IS DIMENSION OF FEATURES
 EMBEDDING_DIM = LANDMARK
 HIDDEN_DIM = LANDMARK*2
-N_LAYERS_CNN = 4
-KERNEL_CNN = 11
-N_LAYERS_RNN = 3
-SIZE_CNN_SAMPLE = 128 #192 / 256 / 128 / 64
+N_LAYERS_CNN = 2
+KERNEL_CNN = 3
+N_LAYERS_RNN = 1
+SIZE_CNN_SAMPLE = 192 #192 / 256 / 128 / 64
 MAX_EPOCH = 5000
 LR = 1e-3
 DEVICES = 1
@@ -157,7 +157,7 @@ if rnn == 'biGRU':
 if rnn == 'LSTM':
     model = LSTM_Classifier(EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 if rnn == 'cnn':
-    model = cnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, KERNEL_CNN)
+    model = cnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, KERNEL_CNN, sample=SIZE_CNN_SAMPLE)
 if rnn == 'crnn':
     model = crnn_Classifier(N_LAYERS_CNN, EMBEDDING_DIM, HIDDEN_DIM, 1, n_layer=N_LAYERS_RNN)
 model = model.cuda()

@@ -24,7 +24,7 @@ HIDDEN_DIM = LANDMARK*2
 N_LAYERS_RNN = 1
 N_LAYERS_CNN = 2
 SIZE_CNN_SAMPLE = 128
-LR = 1e-4
+LR = 1e-3
 DEVICES = 0
 torch.cuda.set_device(DEVICES)
 
